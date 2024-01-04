@@ -5,6 +5,7 @@ import aiosqlite
 from textblob import TextBlob
 import nltk
 from nltk import sent_tokenize
+import json
 
 openai.api_key = 'YOUR_OPENAI_API_KEY'
 
@@ -68,28 +69,28 @@ async def extract_user_details(user_input):
 
 async def generate_dynamic_compassion_prompt(scenario_type, user_input=None):
     try:
-        if scenario_type == "relationship":
+        if scenario_type == "relationship" and user_input:
             system_message = (
                 "You are an advanced AI system exploring the dynamics of trust and communication in long-term romantic relationships. "
                 "Consider challenges such as miscommunication, emotional support, and maintaining intimacy over time. "
-                "Provide insights into fostering a healthy and compassionate connection between partners."
+                f"Provide insights into fostering a healthy and compassionate connection between partners using advanced AI empathy from the datasource: {user_input}."
             )
-            user_message = "System, generate an active compassion scenario guideplan exploring the dynamics of trust and communication in a long-term romantic relationship."
+            user_message = f"System, generate an active compassion scenario guideplan exploring the dynamics of trust and communication in a long-term romantic relationship using advanced AI empathy from the datasource: {user_input}"
 
-        elif scenario_type == "corporate":
+        elif scenario_type == "corporate" and user_input:
             system_message = (
                 "You are an advanced AI system providing scenarios for a corporate environment transitioning to a more empathetic and employee-centric culture. "
                 "Address challenges such as balancing productivity with employee well-being, fostering a sense of belonging, and implementing policies that support mental health. "
-                "Provide insights on how a company can navigate this transformation while ensuring both organizational success and employee satisfaction."
+                f"Provide insights on how a company can navigate this transformation while ensuring both organizational success and employee satisfaction using advanced AI empathy from the datasource: {user_input}."
             )
-            user_message = "System, create an active compassion scenario guideplan transvocating a corporate environment transitioning to a more empathetic and employee-centric culture."
+            user_message = f"System, create an active compassion scenario guideplan transvocating a corporate environment transitioning to a more empathetic and employee-centric culture. advanced AI empathy from the datasource: {user_input}"
 
         elif scenario_type == "work_life_balance" and user_input:
             system_message = (
                 "You are an advanced AI system creating compassion scenarios for a user struggling with balancing work and personal life. "
-                "Consider factors such as job stress, family responsibilities, and other challenges. Provide insights into fostering a healthy balance."
+                f"Consider factors such as job stress, family responsibilities, and other challenges. Provide insights into fostering a healthy balance using advanced AI empathy from the datasource: {user_input}."
             )
-            user_message = f"System, dynamically generate an active compassion scenario guideplan involving a user struggling with balancing work and personal life. Consider factors such as {user_input}."
+            user_message = f"System, dynamically generate an active compassion scenario guideplan involving a user struggling with balancing work and personal life. using advanced AI empathy from the datasource: {user_input}."
 
         else:
             return "Invalid scenario type or missing user input."
@@ -128,6 +129,11 @@ async def generate_dynamic_compassion_prompt(scenario_type, user_input=None):
 - **Active Compassion:** {active_compassion}
 - **Passive Compassion:** {passive_compassion}
 - **Narcissism Detected:** {narcissism_detected}
+
+## Additional Analysis
+- Active Compassion: {active_compassion}
+- Passive Compassion: {passive_compassion}
+- Narcissism Detected: {narcissism_detected}
 """
             with open("ai_compassion_report.md", "w") as report_file:
                 report_file.write(report_content)
@@ -139,9 +145,14 @@ async def generate_dynamic_compassion_prompt(scenario_type, user_input=None):
 
 async def main():
     try:
-        relationship_prompt, active_compassion, passive_compassion, narcissism_detected = await generate_dynamic_compassion_prompt("relationship")
-        corporate_prompt, active_compassion_corp, passive_compassion_corp, narcissism_detected_corp = await generate_dynamic_compassion_prompt("corporate")
-        work_life_balance_prompt, active_compassion_work, passive_compassion_work, narcissism_detected_work = await generate_dynamic_compassion_prompt("work_life_balance", "job stress, family responsibilities, and other challenges")
+        # Load user input from JSON
+        with open('user_input.json', 'r') as json_file:
+            data = json.load(json_file)
+            user_input = data.get('user_input', '')
+
+        relationship_prompt, active_compassion, passive_compassion, narcissism_detected = await generate_dynamic_compassion_prompt("relationship", user_input)
+        corporate_prompt, active_compassion_corp, passive_compassion_corp, narcissism_detected_corp = await generate_dynamic_compassion_prompt("corporate", user_input)
+        work_life_balance_prompt, active_compassion_work, passive_compassion_work, narcissism_detected_work = await generate_dynamic_compassion_prompt("work_life_balance", user_input)
 
         print("Relationship Prompt:")
         print(relationship_prompt)
@@ -161,6 +172,14 @@ async def main():
         print("Passive Compassion:", passive_compassion_work)
         print("Narcissism Detected:", narcissism_detected_work)
 
+        # Connecting the parts
+        print("\nWork-Life Balance Analysis:")
+        print("Active Compassion:", active_compassion_work)
+        print("Passive Compassion:", passive_compassion_work)
+        print("Narcissism Detected:", narcissism_detected_work)
+
+        # You can add more analysis or processing based on these values as needed.
+
         async with aiosqlite.connect('compassiondb.db') as db:
             async with db.cursor() as cursor:
                 await cursor.execute("SELECT * FROM compassion")
@@ -171,3 +190,5 @@ async def main():
     except Exception as e:
         print(f"An error occurred: {e}")
 
+# Running the main function
+await main()
