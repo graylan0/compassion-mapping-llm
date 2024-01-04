@@ -67,6 +67,35 @@ async def extract_user_details(user_input):
     except Exception as e:
         print(f"An error occurred: {e}")
 
+async def generate_dynamic_values_prompt(user_input):
+    try:
+        prompt = f"Given the user input: '{user_input}', determine the following values:\n\n"
+        prompt += "1. **Color Code:** Assign a color code (hex format) that represents the emotional tone of the input.\n"
+        prompt += "2. **Amplitude:** Set an amplitude value reflecting the intensity or positivity of the user input.\n"
+        prompt += "3. **Narcissism Score:** Determine a narcissism score based on the user's expression.\n"
+
+        response = await openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=300,
+        )
+
+        generated_values = response['choices'][0]['message']['content'].split('\n')
+
+ 
+        color_code = generated_values[1].split(': ')[1].strip()
+        amplitude = float(generated_values[2].split(': ')[1].strip())
+        narcissism_score = float(generated_values[3].split(': ')[1].strip())
+
+        return color_code, amplitude, narcissism_score
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
 async def generate_dynamic_compassion_prompt(scenario_type, user_input=None):
     try:
         if scenario_type == "relationship" and user_input:
@@ -95,100 +124,78 @@ async def generate_dynamic_compassion_prompt(scenario_type, user_input=None):
         else:
             return "Invalid scenario type or missing user input."
 
-        async with openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=0.7,
-            max_tokens=300,
-        ) as response:
-            async with aiosqlite.connect('compassiondb.db') as db:
-                async with db.cursor() as cursor:
-                    await cursor.execute("INSERT INTO compassion VALUES (?, ?)", (response['choices'][0]['message']['content'], scenario_type))
+        chunk_size = 4096  # Set your desired chunk size
+        chunks = [user_input[i:i+chunk_size] for i in range(0, len(user_input), chunk_size)]
+
+        for chunk in chunks:
+            async with openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": f"System, generate an active compassion scenario guideplan exploring the dynamics of trust and communication in a long-term romantic relationship using advanced AI empathy from the datasource: {chunk}"},
+                ],
+                temperature=0.7,
+                max_tokens=300,
+            ) as response:
+                async with aiosqlite.connect('compassiondb.db') as db:
+                    async with db.cursor() as cursor:
+                        await cursor.execute("INSERT INTO compassion VALUES (?, ?)", (response['choices'][0]['message']['content'], chunk))
                     await db.commit()
 
-            generated_prompt = response['choices'][0]['message']['content']
+        return "Compassion scenarios generated and stored in the database successfully."
 
-            active_compassion_keywords = ["support", "help", "guide", "assist"]
-            passive_compassion_keywords = ["understand", "empathize", "acknowledge", "listen"]
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-            active_compassion = any(keyword in generated_prompt for keyword in active_compassion_keywords)
-            passive_compassion = any(keyword in generated_prompt for keyword in passive_compassion_keywords)
+async def retrieve_compassion_scenarios():
+    try:
+        async with aiosqlite.connect('compassiondb.db') as db:
+            async with db.cursor() as cursor:
+                await cursor.execute("SELECT * FROM compassion")
+                rows = await cursor.fetchall()
+                return rows
 
-            blob = TextBlob(user_message)
-            sentiment_score = blob.sentiment.polarity
-            narcissism_detected = sentiment_score > 0.5
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-            report_content = f"""
-# AI Compassion Report
+async def process_user_input(user_input):
+    try:
 
-## {scenario_type.capitalize()} Prompt
-{generated_prompt}
-- **Active Compassion:** {active_compassion}
-- **Passive Compassion:** {passive_compassion}
-- **Narcissism Detected:** {narcissism_detected}
+        sentiment_amplitude = await sentiment_to_amplitude(user_input)
+        print(f"Sentiment Amplitude: {sentiment_amplitude}")
 
-## Additional Analysis
-- Active Compassion: {active_compassion}
-- Passive Compassion: {passive_compassion}
-- Narcissism Detected: {narcissism_detected}
-"""
-            with open("ai_compassion_report.md", "w") as report_file:
-                report_file.write(report_content)
+        color_code = await generate_html_color_codes(user_input)
+        amplitude = await sentiment_to_amplitude(user_input)
+        quantum_state = quantum_circuit(color_code, amplitude)
+        print(f"Quantum State: {quantum_state}")
 
-            print(f"Report saved to ai_compassion_report.md for {scenario_type}")
+
+        color_code, amplitude, narcissism_score = await generate_dynamic_values_prompt(user_input)
+        print(f"Color Code: {color_code}, Amplitude: {amplitude}, Narcissism Score: {narcissism_score}")
+
+        scenario_type = "relationship"
+        result = await generate_dynamic_compassion_prompt(scenario_type, user_input)
+        print(result)
+
+
+        scenarios = await retrieve_compassion_scenarios()
+        print("Compassion Scenarios:")
+        for scenario in scenarios:
+            print(scenario)
 
     except Exception as e:
         print(f"An error occurred: {e}")
 
 async def main():
-    try:
-        # Load user input from JSON
-        with open('user_input.json', 'r') as json_file:
-            data = json.load(json_file)
-            user_input = data.get('user_input', '')
+    db_pool = await create_db_pool()
 
-        relationship_prompt, active_compassion, passive_compassion, narcissism_detected = await generate_dynamic_compassion_prompt("relationship", user_input)
-        corporate_prompt, active_compassion_corp, passive_compassion_corp, narcissism_detected_corp = await generate_dynamic_compassion_prompt("corporate", user_input)
-        work_life_balance_prompt, active_compassion_work, passive_compassion_work, narcissism_detected_work = await generate_dynamic_compassion_prompt("work_life_balance", user_input)
+    with open('user_input.json') as json_file:
+        user_inputs = json.load(json_file)
 
-        print("Relationship Prompt:")
-        print(relationship_prompt)
-        print("Active Compassion:", active_compassion)
-        print("Passive Compassion:", passive_compassion)
-        print("Narcissism Detected:", narcissism_detected)
+    for user_input in user_inputs:
+        print(f"\nProcessing User Input: {user_input}")
+        await process_user_input(user_input)
 
-        print("\nCorporate Prompt:")
-        print(corporate_prompt)
-        print("Active Compassion:", active_compassion_corp)
-        print("Passive Compassion:", passive_compassion_corp)
-        print("Narcissism Detected:", narcissism_detected_corp)
-
-        print("\nWork-Life Balance Prompt:")
-        print(work_life_balance_prompt)
-        print("Active Compassion:", active_compassion_work)
-        print("Passive Compassion:", passive_compassion_work)
-        print("Narcissism Detected:", narcissism_detected_work)
-
-        # Connecting the parts
-        print("\nWork-Life Balance Analysis:")
-        print("Active Compassion:", active_compassion_work)
-        print("Passive Compassion:", passive_compassion_work)
-        print("Narcissism Detected:", narcissism_detected_work)
-
-        # You can add more analysis or processing based on these values as needed.
-
-        async with aiosqlite.connect('compassiondb.db') as db:
-            async with db.cursor() as cursor:
-                await cursor.execute("SELECT * FROM compassion")
-                rows = await cursor.fetchall()
-                for row in rows:
-                    print(row)
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-# Running the main function
-await main()
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
