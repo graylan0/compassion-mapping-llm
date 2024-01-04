@@ -74,7 +74,7 @@ async def generate_dynamic_compassion_prompt(scenario_type, user_input=None):
                 "Consider challenges such as miscommunication, emotional support, and maintaining intimacy over time. "
                 "Provide insights into fostering a healthy and compassionate connection between partners."
             )
-            user_message = "System, generate a dialogue exploring the dynamics of trust and communication in a long-term romantic relationship."
+            user_message = "System, generate an active compassion scenario guideplan exploring the dynamics of trust and communication in a long-term romantic relationship."
 
         elif scenario_type == "corporate":
             system_message = (
@@ -82,14 +82,14 @@ async def generate_dynamic_compassion_prompt(scenario_type, user_input=None):
                 "Address challenges such as balancing productivity with employee well-being, fostering a sense of belonging, and implementing policies that support mental health. "
                 "Provide insights on how a company can navigate this transformation while ensuring both organizational success and employee satisfaction."
             )
-            user_message = "System, create a scenario depicting a corporate environment transitioning to a more empathetic and employee-centric culture."
+            user_message = "System, create an active compassion scenario guideplan transvocating a corporate environment transitioning to a more empathetic and employee-centric culture."
 
         elif scenario_type == "work_life_balance" and user_input:
             system_message = (
                 "You are an advanced AI system creating compassion scenarios for a user struggling with balancing work and personal life. "
                 "Consider factors such as job stress, family responsibilities, and other challenges. Provide insights into fostering a healthy balance."
             )
-            user_message = f"System, dynamically generate a compassion scenario prompt involving a user struggling with balancing work and personal life. Consider factors such as {user_input}."
+            user_message = f"System, dynamically generate an active compassion scenario guideplan involving a user struggling with balancing work and personal life. Consider factors such as {user_input}."
 
         else:
             return "Invalid scenario type or missing user input."
