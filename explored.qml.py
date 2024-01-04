@@ -7,7 +7,9 @@ import nltk
 from nltk import sent_tokenize
 import json
 
-openai.api_key = 'YOUR_OPENAI_API_KEY'
+with open('config.json') as config_file:
+    config = json.load(config_file)
+    openai.api_key = config['openai_api_key']
 
 qml_model = qml.device("default.qubit", wires=4)
 
@@ -72,8 +74,10 @@ async def generate_dynamic_values_prompt(user_input):
     narcissism_score = float(generated_values[3].split(': ')[1].strip())
     return color_code, amplitude, narcissism_score
 
-async def generate_dynamic_compassion_prompt(scenario_type, user_input=None, quantum_state=None):
-    if scenario_type == "relationship" and user_input:
+async def generate_dynamic_compassion_prompt(scenario_type, user_input, quantum_state):
+    system_message = ""
+    user_message = ""
+    if scenario_type == "relationship":
         system_message = (
             "You are an advanced AI system exploring the dynamics of trust and communication in long-term romantic relationships. "
             "Consider challenges such as miscommunication, emotional support, and maintaining intimacy over time. "
@@ -81,8 +85,7 @@ async def generate_dynamic_compassion_prompt(scenario_type, user_input=None, qua
             f"\n\nQuantum State: {quantum_state}"
         )
         user_message = f"System, generate an active compassion scenario guideplan exploring the dynamics of trust and communication in a long-term romantic relationship using advanced AI empathy from the datasource: {user_input}"
-
-    elif scenario_type == "corporate" and user_input:
+    elif scenario_type == "corporate":
         system_message = (
             "You are an advanced AI system providing scenarios for a corporate environment transitioning to a more empathetic and employee-centric culture. "
             "Address challenges such as balancing productivity with employee well-being, fostering a sense of belonging, and implementing policies that support mental health. "
@@ -90,37 +93,26 @@ async def generate_dynamic_compassion_prompt(scenario_type, user_input=None, qua
             f"\n\nQuantum State: {quantum_state}"
         )
         user_message = f"System, create an active compassion scenario guideplan transvocating a corporate environment transitioning to a more empathetic and employee-centric culture. advanced AI empathy from the datasource: {user_input}"
-
-    elif scenario_type == "work_life_balance" and user_input:
+    elif scenario_type == "work_life_balance":
         system_message = (
             "You are an advanced AI system creating compassion scenarios for a user struggling with balancing work and personal life. "
             f"Consider factors such as job stress, family responsibilities, and other challenges. Provide insights into fostering a healthy balance using advanced AI empathy from the datasource: {user_input}."
             f"\n\nQuantum State: {quantum_state}"
         )
         user_message = f"System, dynamically generate an active compassion scenario guideplan involving a user struggling with balancing work and personal life. using advanced AI empathy from the datasource: {user_input}."
-
     else:
-        return "Invalid scenario type or missing user input."
+        return "Invalid scenario type."
 
-    chunk_size = 4096
-    chunks = [user_input[i:i+chunk_size] for i in range(0, len(user_input), chunk_size)]
-
-    for chunk in chunks:
-        async with openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=0.7,
-            max_tokens=300,
-        ) as response:
-            async with aiosqlite.connect('compassiondb.db') as db:
-                async with db.cursor() as cursor:
-                    await cursor.execute("INSERT INTO compassion VALUES (?, ?)", (response['choices'][0]['message']['content'], chunk))
-                await db.commit()
-
-    return "Compassion scenarios generated and stored in the database successfully."
+    response = await openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message},
+        ],
+        temperature=0.7,
+        max_tokens=300,
+    )
+    return response['choices'][0]['message']['content']
 
 async def retrieve_compassion_scenarios():
     async with aiosqlite.connect('compassiondb.db') as db:
@@ -131,22 +123,17 @@ async def retrieve_compassion_scenarios():
 
 async def process_user_input(user_input):
     sentiment_amplitude = await sentiment_to_amplitude(user_input)
-    print(f"Sentiment Amplitude: {sentiment_amplitude}")
-
     color_code = await generate_html_color_codes(user_input)
     amplitude = await sentiment_to_amplitude(user_input)
     quantum_state = quantum_circuit(color_code, amplitude)
-    print(f"Quantum State: {quantum_state}")
-
     color_code, amplitude, narcissism_score = await generate_dynamic_values_prompt(user_input)
-    print(f"Color Code: {color_code}, Amplitude: {amplitude}, Narcissism Score: {narcissism_score}")
-
     scenario_type = "relationship"
-    result = await generate_dynamic_compassion_prompt(scenario_type, user_input, quantum_state)
-    print(result)
-
+    compassion_scenario = await generate_dynamic_compassion_prompt(scenario_type, user_input, quantum_state)
+    async with aiosqlite.connect('compassiondb.db') as db:
+        async with db.cursor() as cursor:
+            await cursor.execute("INSERT INTO compassion VALUES (?, ?)", (compassion_scenario, user_input))
+        await db.commit()
     scenarios = await retrieve_compassion_scenarios()
-    print("Compassion Scenarios:")
     for scenario in scenarios:
         print(scenario)
 
@@ -155,7 +142,6 @@ async def main():
     with open('user_input.json') as json_file:
         user_inputs = json.load(json_file)
     for user_input in user_inputs:
-        print(f"\nProcessing User Input: {user_input}")
         await process_user_input(user_input)
 
 if __name__ == "__main__":
