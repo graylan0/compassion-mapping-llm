@@ -1,7 +1,6 @@
 demo
 
-# Compassion Analysis Report
-
+# Compassion Analysis Report Colobit Emotional Research, use with caution
 ## User Input
 
 - **Input**: I'm feeling very peaceful and content today, everything is in balance and it's a good day.
